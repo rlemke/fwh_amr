@@ -1,0 +1,113 @@
+// AMR domain — antibiotic-resistance gene spread from NCBI Pathogen Detection.
+//
+// DownloadOrganism streams one NCBI Pathogen Detection organism group's per-isolate
+// metadata.tsv (the precomputed AMRFinderPlus calls in the AMR_genotypes column — no
+// assemblies fetched) and caches a compact aggregate: resistance-class prevalence by
+// country x year + a per-gene rollup (first-seen year, isolate count, countries).
+// BuildResistanceMap fans in every cached organism aggregate into a MapLibre world
+// choropleth with a YEAR SLIDER + drug-class dropdown; BuildGeneSpeciesTable renders a
+// ranked, explainable gene x species table (critical mechanisms first). Outputs ->
+// cache/amr/output/{index.html,genes.html} (MinIO on the fleet).
+
+namespace amr.sources {
+    /** List the curated pathogen groups to ingest (the fan-out unit for
+      * BuildAmrFanout). `quick` returns only the small demo set. */
+    event facet ListOrganisms(
+        quick: Boolean = false
+    ) => (
+        organisms: [String],
+        count: Long
+    ) with Effect(kind = "io") with Cost(tier = "free")
+
+    /** Ingest ONE NCBI Pathogen Detection organism group: stream its
+      * metadata.tsv, aggregate resistance-class prevalence by country x year +
+      * per-gene rollups, and cache the aggregate in the shared organisms dir.
+      * `max_rows` = 0 means the whole file (a positive value samples + logs it). */
+    event facet DownloadOrganism(
+        group: String,
+        force: Boolean = false,
+        max_rows: Long = 0
+    ) => (
+        group: String,
+        isolate_count: Long,
+        gene_count: Long
+    ) with Effect(kind = "external") with Cost(tier = "moderate") with Timeout(minutes = 45)
+}
+
+namespace amr.maps {
+    /** Fan-in: merge every cached organism aggregate, join country prevalence
+      * onto Natural Earth geometry, and render the year-slider + drug-class
+      * world choropleth. `dependency_signal` sequences this after the ingest. */
+    event facet BuildResistanceMap(
+        dependency_signal: Long = 0
+    ) => (
+        html_path: String,
+        country_count: Long,
+        organism_count: Long,
+        isolate_count: Long,
+        year_min: Long,
+        year_max: Long
+    ) with Effect(kind = "io") with Cost(tier = "cheap") with Timeout(minutes = 15)
+
+    /** Fan-in: merge the per-gene rollups into a ranked, explainable gene x
+      * species table (critical mechanisms first). */
+    event facet BuildGeneSpeciesTable(
+        dependency_signal: Long = 0
+    ) => (
+        html_path: String,
+        row_count: Long,
+        organism_count: Long
+    ) with Effect(kind = "io") with Cost(tier = "cheap") with Timeout(minutes = 15)
+}
+
+namespace amr.workflows {
+    use amr.sources
+    use amr.maps
+
+    /** Single-organism end-to-end: ingest one pathogen group, then build the
+      * resistance map + gene x species table over the cache. The quick demo
+      * (e.g. group = "Vibrio_cholerae"). */
+    workflow BuildOrganismAtlas(
+        group: String,
+        force: Boolean = false
+    ) => (status: String, map_path: String, table_path: String, isolate_count: Long) andThen {
+        data = DownloadOrganism(group = $.group, force = $.force)
+        map = BuildResistanceMap(dependency_signal = data.isolate_count)
+        tbl = BuildGeneSpeciesTable(dependency_signal = map.country_count)
+        yield BuildOrganismAtlas(
+            status = "completed",
+            map_path = map.html_path,
+            table_path = tbl.html_path,
+            isolate_count = data.isolate_count
+        )
+    }
+
+    /** FAN-OUT: one DownloadOrganism per curated pathogen group, distributed
+      * across the fleet. Runs in PARALLEL; wall-clock ~= the slowest organism.
+      * Follow with BuildAmrMaps to render once the aggregates are cached. */
+    workflow BuildAmrFanout(
+        quick: Boolean = false,
+        force: Boolean = false,
+        max_rows: Long = 0
+    ) => (built: [String]) andThen {
+        children = amr.sources.ListOrganisms(quick = $.quick) andThen foreach g in $.organisms {
+            dl = amr.sources.DownloadOrganism(group = $.g, force = $$.force, max_rows = $$.max_rows)
+            yield BuildAmrFanout(built = [dl.group])
+        }
+    }
+
+    /** Fan-in: build the resistance map + gene x species table over every cached
+      * organism aggregate. Run after BuildAmrFanout has populated the cache. */
+    workflow BuildAmrMaps(
+        force: Boolean = false
+    ) => (status: String, map_path: String, table_path: String, organism_count: Long) andThen {
+        map = BuildResistanceMap(dependency_signal = 0)
+        tbl = BuildGeneSpeciesTable(dependency_signal = map.country_count)
+        yield BuildAmrMaps(
+            status = "completed",
+            map_path = map.html_path,
+            table_path = tbl.html_path,
+            organism_count = map.organism_count
+        )
+    }
+}

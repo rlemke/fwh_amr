@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "amr"
+version = "0.1.0"
+description = "Facetwork domain: antibiotic-resistance gene spread (geography + time + species) from NCBI Pathogen Detection"
+requires-python = ">=3.11"
+authors = [{name = "Ralph Lemke"}]
+dependencies = ["requests"]
+
+[project.entry-points."facetwork.domains"]
+amr = "amr:domain"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+amr = ["ffl/*.ffl", "organisms.json"]
