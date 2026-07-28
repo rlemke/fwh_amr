@@ -72,8 +72,8 @@ namespace amr.workflows {
         force: Boolean = false
     ) => (status: String, map_path: String, table_path: String, isolate_count: Long) andThen {
         data = DownloadOrganism(group = $.group, force = $.force)
-        map = BuildResistanceMap(dependency_signal = data.isolate_count)
-        tbl = BuildGeneSpeciesTable(dependency_signal = map.country_count)
+        map = BuildResistanceMap() after data
+        tbl = BuildGeneSpeciesTable() after map
         yield BuildOrganismAtlas(
             status = "completed",
             map_path = map.html_path,
@@ -101,8 +101,8 @@ namespace amr.workflows {
     workflow BuildAmrMaps(
         force: Boolean = false
     ) => (status: String, map_path: String, table_path: String, organism_count: Long) andThen {
-        map = BuildResistanceMap(dependency_signal = 0)
-        tbl = BuildGeneSpeciesTable(dependency_signal = map.country_count)
+        map = BuildResistanceMap()
+        tbl = BuildGeneSpeciesTable() after map
         yield BuildAmrMaps(
             status = "completed",
             map_path = map.html_path,
