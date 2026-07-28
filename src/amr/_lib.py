@@ -526,6 +526,7 @@ def _render_map_html(fc: dict, prev: dict, *, classes: list[str], years: list[in
   drug class, by country and year. Source: NCBI Pathogen Detection
   ({organism_count} pathogen groups, {isolate_count:,} isolates).</div>
   <select id="cls"></select>
+  <div style="margin-top:6px"><a href="genes.html" style="color:#1565c0;text-decoration:none;font-size:13px">&#129516; Gene &times; species table &rarr;</a></div>
   <button id="infobtn" class="infobtn">&#8505;&#65039; About this data (read the caveats)</button>
 </div>
 <div id="legend" class="panel">
@@ -644,6 +645,7 @@ def _render_table_html(rows: list[dict], *, organism_count: int) -> str:
 <body>
 <header>
   <h1>Antibiotic-resistance genes by pathogen species</h1>
+  <div style="margin:0 0 6px"><a href="index.html" style="color:#1565c0;text-decoration:none;font-size:13px">&#127758; &larr; Resistance world map</a></div>
   <div class="sub">One row per resistance gene &times; species from NCBI Pathogen Detection
   ({organism_count} pathogen groups). <span class="critbadge">&#9888; {n_crit:,}</span> rows are
   critical mechanisms (carbapenemase, colistin <code>mcr</code>, ESBL, vancomycin). Co-occurrence
