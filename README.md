@@ -78,6 +78,42 @@ Outputs land in the storage backend under `cache/amr/output/{index.html,genes.ht
 | `BuildAmrFanout(quick, force, max_rows)` | fan out `DownloadOrganism` over the curated panel (`quick` = demo set only) |
 | `BuildAmrMaps(force)` | fan-in: build the resistance map + gene × species table |
 
+## FFL at a glance
+
+The domain is driven from [FFL](https://github.com/rlemke/facetwork/blob/main/docs/reference/language/grammar.md),
+Facetwork's workflow language. A step is `name = Facet(args)`; later steps
+reference earlier ones as `step.field`; `andThen foreach` fans a step out across
+the fleet:
+
+```ffl
+namespace my.amr {
+
+    use amr.sources
+    use amr.maps
+
+    /** Ingest every curated pathogen group in parallel, then render the map. */
+    workflow IngestEverything(quick: Boolean = false) => (built: [String]) andThen {
+
+        groups = amr.sources.ListOrganisms(quick = $.quick) andThen foreach g in $.organisms {
+
+            dl = amr.sources.DownloadOrganism(group = $.g, force = false)
+
+            yield IngestEverything(built = [dl.group])
+        }
+    }
+}
+```
+
+```bash
+fw ffl run --primary my.ffl --library src/amr/ffl/amr.ffl \
+  --workflow my.amr.IngestEverything
+```
+
+📖 **[docs/ffl-examples.md](docs/ffl-examples.md)** — the full example gallery:
+fan-out/fan-in, call-time mixins (timeout/retry), `catch` so one bad organism
+doesn't kill the run, `when` branching, and cross-domain composition (publishing).
+Every snippet there is compile-checked.
+
 ## Data source
 
 NCBI Pathogen Detection FTP: `ftp.ncbi.nlm.nih.gov/pathogen/Results/<Group>/latest_snps/Metadata/<PDG…>.metadata.tsv`.
