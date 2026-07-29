@@ -37,10 +37,9 @@ namespace amr.sources {
 namespace amr.maps {
     /** Fan-in: merge every cached organism aggregate, join country prevalence
       * onto Natural Earth geometry, and render the year-slider + drug-class
-      * world choropleth. `dependency_signal` sequences this after the ingest. */
-    event facet BuildResistanceMap(
-        dependency_signal: Long = 0
-    ) => (
+      * world choropleth. Reads the cached organism aggregates, so callers must
+      * order it with `after <ingest step>` (no value flows between them). */
+    event facet BuildResistanceMap() => (
         html_path: String,
         country_count: Long,
         organism_count: Long,
@@ -51,9 +50,7 @@ namespace amr.maps {
 
     /** Fan-in: merge the per-gene rollups into a ranked, explainable gene x
       * species table (critical mechanisms first). */
-    event facet BuildGeneSpeciesTable(
-        dependency_signal: Long = 0
-    ) => (
+    event facet BuildGeneSpeciesTable() => (
         html_path: String,
         row_count: Long,
         organism_count: Long
