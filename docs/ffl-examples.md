@@ -24,8 +24,8 @@ and the [canonical examples](https://github.com/rlemke/facetwork/tree/main/examp
 |---|---|---|
 | `amr.sources.ListOrganisms` | `(quick: Boolean = false) => (organisms: [String], count: Long)` | The curated pathogen groups — the fan-out unit |
 | `amr.sources.DownloadOrganism` | `(group: String, force: Boolean = false, max_rows: Long = 0) => (group, isolate_count, gene_count)` | Ingest ONE NCBI Pathogen Detection group → cached country × year aggregate |
-| `amr.maps.BuildResistanceMap` | `(dependency_signal: Long = 0) => (html_path, country_count, organism_count, isolate_count, year_min, year_max)` | Fan-in → year-slider + drug-class world choropleth |
-| `amr.maps.BuildGeneSpeciesTable` | `(dependency_signal: Long = 0) => (html_path, row_count, organism_count)` | Fan-in → ranked gene × species table |
+| `amr.maps.BuildResistanceMap` | `() => (html_path, country_count, organism_count, isolate_count, year_min, year_max)` | Fan-in → year-slider + drug-class world choropleth |
+| `amr.maps.BuildGeneSpeciesTable` | `() => (html_path, row_count, organism_count)` | Fan-in → ranked gene × species table |
 | `amr.workflows.BuildOrganismAtlas` | `(group: String, force: Boolean = false)` | One organism, end to end |
 | `amr.workflows.BuildAmrFanout` | `(quick, force, max_rows) => (built: [String])` | One ingest per group, in parallel across the fleet |
 | `amr.workflows.BuildAmrMaps` | `(force: Boolean = false)` | Fan-in: render map + table over the whole cache |
@@ -68,7 +68,7 @@ namespace my.amr {
 
         dl = amr.sources.DownloadOrganism(group = $.group)
 
-        map = amr.maps.BuildResistanceMap(dependency_signal = dl.isolate_count)
+        map = amr.maps.BuildResistanceMap() after dl
 
         yield OneOrganism(html_path = map.html_path, isolates = map.isolate_count)
     }
@@ -139,7 +139,7 @@ fw ffl run --primary my.ffl --library …/amr.ffl \
 
 `BuildResistanceMap` reads the *cache* the ingests wrote, so it needs no value
 from them. Steps with no reference between them may run in any order, so make the
-dependency explicit by passing any upstream field as `dependency_signal`:
+dependency explicit with `after`:
 
 ```ffl
 namespace my.amr {
@@ -149,10 +149,10 @@ namespace my.amr {
     /** Render both artifacts, table strictly after the map. */
     workflow RenderBoth() => (map_path: String, table_path: String) andThen {
 
-        map = amr.maps.BuildResistanceMap(dependency_signal = 0)
+        map = amr.maps.BuildResistanceMap()
 
         // referencing map.country_count is what orders this second
-        tbl = amr.maps.BuildGeneSpeciesTable(dependency_signal = map.country_count)
+        tbl = amr.maps.BuildGeneSpeciesTable() after map
 
         yield RenderBoth(map_path = map.html_path, table_path = tbl.html_path)
     }
@@ -176,7 +176,7 @@ namespace my.amr {
 
         dl = amr.sources.DownloadOrganism(group = $.group, force = true) with Timeout(minutes = 120) with Retry(maxAttempts = 3, backoffSeconds = 120)
 
-        map = amr.maps.BuildResistanceMap(dependency_signal = dl.isolate_count) with Timeout(minutes = 30)
+        map = amr.maps.BuildResistanceMap() with Timeout(minutes = 30) after dl
 
         yield PatientIngest(isolates = map.isolate_count)
     }
@@ -224,7 +224,7 @@ namespace my.amr {
 
         dl = amr.sources.DownloadOrganism(group = $.group) andThen when {
             case $.isolate_count >= $$.min_isolates => {
-                map = amr.maps.BuildResistanceMap(dependency_signal = $.isolate_count)
+                map = amr.maps.BuildResistanceMap()
                 yield GuardedRender(status = "completed", html_path = map.html_path)
             }
             case _ => {
@@ -250,7 +250,7 @@ namespace my.amr {
     /** Render, then push to the public maps site. */
     workflow RenderAndPublish(repo: String = "rlemke/facetwork-maps") => (pages_url: String) andThen {
 
-        map = amr.maps.BuildResistanceMap(dependency_signal = 0)
+        map = amr.maps.BuildResistanceMap()
 
         published = census.Publish.PublishWebBundle(
             repo = $.repo,
