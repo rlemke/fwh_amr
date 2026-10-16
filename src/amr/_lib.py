@@ -562,7 +562,7 @@ function matchExpr(){{
   e.push(NODATA); return e;
 }}
 const map=new maplibregl.Map({{container:'map',style:{{version:8,
-  sources:{{bm:{{type:'raster',tiles:['https://a.basemaps.cartocdn.com/rastertiles/voyager/{{z}}/{{x}}/{{y}}.png','https://b.basemaps.cartocdn.com/rastertiles/voyager/{{z}}/{{x}}/{{y}}.png'],tileSize:256,attribution:'&copy; OpenStreetMap &copy; CARTO &middot; NCBI Pathogen Detection'}}}},
+  sources:{{bm:{{type:'raster',tiles:['https://tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png'],tileSize:256,attribution:'&copy; OpenStreetMap &middot; NCBI Pathogen Detection'}}}},
   layers:[{{id:'bm',type:'raster',source:'bm'}}]}},center:[14,25],zoom:1.4}});
 map.addControl(new maplibregl.NavigationControl());
 const slider=document.getElementById('year'), ylab=document.getElementById('yr');
