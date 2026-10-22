@@ -255,7 +255,7 @@ namespace my.amr {
         published = census.Publish.PublishWebBundle(
             repo = $.repo,
             prefixes = ["amr/output"],
-            dests = ["amr"],
+            dests = ["health/amr"],
             labels = ["Antibiotic-resistance gene spread"],
             landing_title = "Facetwork maps")
 
